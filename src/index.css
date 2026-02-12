@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --wts-yellow: #f5c518;
+  --wts-yellow-light: #fce588;
+  --wts-magenta: #e91e8c;
+  --wts-green: #2ecc71;
+  --wts-bg: #fafafa;
+  --wts-surface: #ffffff;
+  --wts-border: #e8e8e8;
+  --wts-text: #1a1a1a;
+  --wts-text-muted: #888888;
+  --wts-field-bg: #f0f0f5;
+  --radius: 12px;
+  --radius-pill: 99rem;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  background: var(--wts-bg);
+  color: var(--wts-text);
+}
