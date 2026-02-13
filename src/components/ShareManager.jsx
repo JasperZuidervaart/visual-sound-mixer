@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
+import JSZip from 'jszip';
 import useSoundStore from '../stores/useSoundStore';
 import { saveShare, getAllShares, deleteShareFromDb, getPresetsByIds, getByIdsFromDb } from '../lib/audioDb';
-import { arrayBufferToBase64 } from '../lib/shareCodec';
 
 const CONTROL_LABELS = {
   globalMute: 'Global Mute',
@@ -119,7 +119,7 @@ export default function ShareManager() {
     setVisibleControls((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Export share as downloadable JSON file
+  // Export share as ZIP: meta.json + losse audio bestanden
   const exportShare = async (shareId) => {
     const share = shares.find((s) => s.id === shareId);
     if (!share) return;
@@ -140,33 +140,37 @@ export default function ShareManager() {
       // 3. Get audio from IDB
       const audioItems = await getByIdsFromDb([...audioIds]);
 
-      // 4. Build audio map: id → { name, data (base64) }
-      const audioMap = {};
+      // 4. Build ZIP
+      const zip = new JSZip();
+      const folder = zip.folder(share.id);
+
+      // meta.json: config + presets + audio name mapping (no audio data)
+      const audioNames = {};
       for (const item of audioItems) {
-        audioMap[item.id] = {
-          name: item.name,
-          data: arrayBufferToBase64(item.audioData),
-        };
+        audioNames[item.id] = item.name;
       }
 
-      // 5. Build payload
-      const payload = {
-        id: share.id,
+      const meta = {
         name: share.name,
         visibleControls: share.visibleControls,
         showLibrary: share.showLibrary,
         showOrbRemove: share.showOrbRemove,
         presets: sharePresets.map((p) => ({ ...p, shared: true, backgroundImage: null })),
-        audio: audioMap,
+        audioNames,
       };
+      folder.file('meta.json', JSON.stringify(meta, null, 2));
 
-      // 6. Download as JSON file named {shareId}.json
-      const json = JSON.stringify(payload);
-      const blob = new Blob([json], { type: 'application/json' });
+      // Audio files: {dbId}.bin (raw binary)
+      for (const item of audioItems) {
+        folder.file(`${item.id}.bin`, item.audioData);
+      }
+
+      // 5. Generate and download ZIP
+      const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${share.id}.json`;
+      a.download = `${share.id}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

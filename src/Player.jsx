@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import Library from './components/Library';
 import MixerField from './components/MixerField';
 import { getPlayerPresets, playerDbName, getByIdsFromDb, savePreset, saveToDbWithId } from './lib/audioDb';
-import { base64ToArrayBuffer } from './lib/shareCodec';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import useSoundStore from './stores/useSoundStore';
 import './App.css';
@@ -17,55 +16,11 @@ export default function Player() {
   const addToLibrary = useSoundStore((s) => s.addToLibrary);
   const { decodeAudio } = useAudioEngine();
 
-  // Load payload into player IDB and Zustand store
-  async function loadPayloadIntoPlayer(payload, sid) {
-    const shareData = {
-      name: payload.name,
-      visibleControls: payload.visibleControls,
-      showLibrary: payload.showLibrary,
-      showOrbRemove: payload.showOrbRemove,
-      presetIds: payload.presets.map((p) => p.id),
-    };
-    setShare(shareData);
-    setShareId(sid);
-
-    // Write presets + audio into a player-specific IDB
-    const pDbName = playerDbName(sid);
-
-    for (const preset of payload.presets) {
-      await savePreset({ ...preset, shared: true }, pDbName);
-    }
-
-    for (const [idStr, audioEntry] of Object.entries(payload.audio)) {
-      const arrayBuffer = base64ToArrayBuffer(audioEntry.data);
-      await saveToDbWithId(Number(idStr), audioEntry.name, arrayBuffer, pDbName);
-    }
-
-    // Load from player IDB
-    const playerPresets = await getPlayerPresets(sid);
-    loadPresets(playerPresets);
-
-    const firstPreset = playerPresets[0];
-    if (firstPreset?.libraryItemDbIds?.length > 0) {
-      const items = await getByIdsFromDb(firstPreset.libraryItemDbIds, pDbName);
-      for (const item of items) {
-        try {
-          const audioBuffer = await decodeAudio(item.audioData);
-          addToLibrary(item.name, audioBuffer, item.id);
-        } catch (err) {
-          console.error('Failed to decode audio:', item.name, err);
-        }
-      }
-    }
-  }
-
   useEffect(() => {
     (async () => {
       try {
         const hash = window.location.hash;
 
-        // ===== Share link: #share-<id> =====
-        // Fetches the share JSON from /shares/{id}.json (served as static file)
         const match = hash.match(/^#share-(.+)$/);
         if (!match) {
           setError('Geen share gevonden. Open een share-link om te beginnen.');
@@ -74,20 +29,69 @@ export default function Player() {
         }
 
         const sid = match[1];
+        const baseUrl = `${import.meta.env.BASE_URL}shares/${sid}/`;
 
-        // Fetch the share JSON via HTTP
-        const jsonUrl = `${import.meta.env.BASE_URL}shares/${sid}.json`;
-        const response = await fetch(jsonUrl);
-
-        if (!response.ok) {
-          setError('Share niet gevonden. Controleer de link of vraag de admin om het JSON-bestand te deployen.');
+        // 1. Fetch meta.json
+        const metaResponse = await fetch(`${baseUrl}meta.json`);
+        if (!metaResponse.ok) {
+          setError('Share niet gevonden. Controleer de link.');
           setLoading(false);
           return;
         }
 
-        const payload = await response.json();
+        const meta = await metaResponse.json();
 
-        await loadPayloadIntoPlayer(payload, sid);
+        setShare({
+          name: meta.name,
+          visibleControls: meta.visibleControls,
+          showLibrary: meta.showLibrary,
+          showOrbRemove: meta.showOrbRemove,
+          presetIds: meta.presets.map((p) => p.id),
+        });
+        setShareId(sid);
+
+        // 2. Write presets to player IDB
+        const pDbName = playerDbName(sid);
+        for (const preset of meta.presets) {
+          await savePreset({ ...preset, shared: true }, pDbName);
+        }
+
+        // 3. Fetch audio files and write to player IDB
+        const audioIds = new Set();
+        for (const preset of meta.presets) {
+          for (const dbId of preset.libraryItemDbIds || []) {
+            audioIds.add(dbId);
+          }
+        }
+
+        await Promise.all([...audioIds].map(async (id) => {
+          const audioResponse = await fetch(`${baseUrl}${id}.bin`);
+          if (!audioResponse.ok) {
+            console.error(`Failed to fetch audio ${id}.bin`);
+            return;
+          }
+          const arrayBuffer = await audioResponse.arrayBuffer();
+          const name = meta.audioNames?.[String(id)] || `sound-${id}`;
+          await saveToDbWithId(id, name, arrayBuffer, pDbName);
+        }));
+
+        // 4. Load presets + audio from player IDB
+        const playerPresets = await getPlayerPresets(sid);
+        loadPresets(playerPresets);
+
+        const firstPreset = playerPresets[0];
+        if (firstPreset?.libraryItemDbIds?.length > 0) {
+          const items = await getByIdsFromDb(firstPreset.libraryItemDbIds, pDbName);
+          for (const item of items) {
+            try {
+              const audioBuffer = await decodeAudio(item.audioData);
+              addToLibrary(item.name, audioBuffer, item.id);
+            } catch (err) {
+              console.error('Failed to decode audio:', item.name, err);
+            }
+          }
+        }
+
         setLoading(false);
       } catch (err) {
         console.error('Failed to load share:', err);
