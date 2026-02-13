@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import useSoundStore from '../stores/useSoundStore';
 import { saveShare, getAllShares, deleteShareFromDb, getPresetsByIds, getByIdsFromDb } from '../lib/audioDb';
-import { encodeSharePayload, arrayBufferToBase64 } from '../lib/shareCodec';
+import { arrayBufferToBase64 } from '../lib/shareCodec';
 
 const CONTROL_LABELS = {
   globalMute: 'Global Mute',
@@ -37,7 +37,7 @@ export default function ShareManager() {
   const [showLibrary, setShowLibrary] = useState(true);
   const [showOrbRemove, setShowOrbRemove] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
-  const [generating, setGenerating] = useState(null);
+  const [exporting, setExporting] = useState(null);
 
   // Load shares from IDB on mount
   useEffect(() => {
@@ -48,7 +48,6 @@ export default function ShareManager() {
 
   // Persist shares to IDB
   useEffect(() => {
-    // Save all shares whenever they change
     for (const share of shares) {
       saveShare(share).catch(console.error);
     }
@@ -120,11 +119,12 @@ export default function ShareManager() {
     setVisibleControls((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const copyShareUrl = async (shareId) => {
+  // Export share as downloadable JSON file
+  const exportShare = async (shareId) => {
     const share = shares.find((s) => s.id === shareId);
     if (!share) return;
 
-    setGenerating(shareId);
+    setExporting(shareId);
     try {
       // 1. Get presets from IDB
       const sharePresets = await getPresetsByIds(share.presetIds);
@@ -151,6 +151,7 @@ export default function ShareManager() {
 
       // 5. Build payload
       const payload = {
+        id: share.id,
         name: share.name,
         visibleControls: share.visibleControls,
         showLibrary: share.showLibrary,
@@ -159,29 +160,33 @@ export default function ShareManager() {
         audio: audioMap,
       };
 
-      // 6. Encode & compress
-      const encoded = encodeSharePayload(payload);
+      // 6. Download as JSON file named {shareId}.json
+      const json = JSON.stringify(payload);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${share.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export share:', err);
+      alert('Fout bij het exporteren van de share.');
+    } finally {
+      setExporting(null);
+    }
+  };
 
-      // 7. Build URL
-      const base = window.location.origin + import.meta.env.BASE_URL;
-      const url = `${base}#s=${encoded}`;
-
-      if (url.length > 2_000_000) {
-        alert(
-          `Share link is te groot (${(url.length / 1_000_000).toFixed(1)}MB). Probeer minder of kleinere audiobestanden.`
-        );
-        return;
-      }
-
-      await navigator.clipboard.writeText(url);
+  // Copy the share link to clipboard
+  const copyShareLink = (shareId) => {
+    const base = window.location.origin + import.meta.env.BASE_URL;
+    const url = `${base}#share-${shareId}`;
+    navigator.clipboard.writeText(url).then(() => {
       setCopiedId(shareId);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error('Failed to generate share URL:', err);
-      alert('Fout bij het genereren van de share link.');
-    } finally {
-      setGenerating(null);
-    }
+    });
   };
 
   return (
@@ -279,12 +284,19 @@ export default function ShareManager() {
               </div>
               <div className="share-item-actions">
                 <button
-                  className="share-copy-btn"
-                  onClick={() => copyShareUrl(share.id)}
-                  title="Kopieer link"
-                  disabled={generating === share.id}
+                  className="share-export-btn"
+                  onClick={() => exportShare(share.id)}
+                  title="Exporteer JSON"
+                  disabled={exporting === share.id}
                 >
-                  {generating === share.id ? '...' : copiedId === share.id ? '✓' : '🔗'}
+                  {exporting === share.id ? '...' : '💾'}
+                </button>
+                <button
+                  className="share-copy-btn"
+                  onClick={() => copyShareLink(share.id)}
+                  title="Kopieer link"
+                >
+                  {copiedId === share.id ? '✓' : '🔗'}
                 </button>
                 <button
                   className="share-edit-btn"
