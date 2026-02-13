@@ -119,8 +119,9 @@ export default function ShareManager() {
   };
 
   const getShareUrl = (shareId) => {
-    const base = window.location.origin;
-    return `${base}/#share-${shareId}`;
+    // Use import.meta.env.BASE_URL to include the base path (e.g. /visual-sound-mixer/)
+    const base = window.location.origin + import.meta.env.BASE_URL;
+    return `${base}#share-${shareId}`;
   };
 
   const copyShareUrl = (shareId) => {
