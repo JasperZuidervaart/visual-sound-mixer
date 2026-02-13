@@ -10,7 +10,13 @@ function getAudioContext() {
   return window.__audioCtx || (window.AudioContext && new AudioContext());
 }
 
-export default function MixerField() {
+export default function MixerField({ mode = 'admin', visibleControls = null, showOrbRemove = true }) {
+  const isPlayer = mode === 'player';
+  // Default: all controls visible
+  const vc = visibleControls || {
+    globalMute: true, reverbToggle: true, reverbSendSlider: true,
+    reverbLpfSlider: true, filterToggle: true, quantizeToggle: true, bpmControl: true,
+  };
   const fieldRef = useRef(null);
   const orbs = useSoundStore((s) => s.orbs);
   const globalMuted = useSoundStore((s) => s.globalMuted);
@@ -220,32 +226,36 @@ export default function MixerField() {
       {/* Top-right controls */}
       <div className="mixer-controls">
         {/* Global mute button */}
-        <button
-          className={`control-button ${globalMuted ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleGlobalMute();
-          }}
-          title={globalMuted ? 'Unmute all' : 'Mute all'}
-        >
-          {globalMuted ? 'MUTED' : 'MUTE'}
-        </button>
+        {vc.globalMute && (
+          <button
+            className={`control-button ${globalMuted ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleGlobalMute();
+            }}
+            title={globalMuted ? 'Unmute all' : 'Mute all'}
+          >
+            {globalMuted ? 'MUTED' : 'MUTE'}
+          </button>
+        )}
 
         {/* Reverb toggle */}
-        <button
-          className={`control-button reverb-button ${reverbEnabled ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            resumeAudioContext();
-            toggleReverb();
-          }}
-          title={reverbEnabled ? 'Disable reverb' : 'Enable reverb'}
-        >
-          {reverbEnabled ? '🔔 REVERB ON' : '🔕 REVERB'}
-        </button>
+        {vc.reverbToggle && (
+          <button
+            className={`control-button reverb-button ${reverbEnabled ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              resumeAudioContext();
+              toggleReverb();
+            }}
+            title={reverbEnabled ? 'Disable reverb' : 'Enable reverb'}
+          >
+            {reverbEnabled ? '🔔 REVERB ON' : '🔕 REVERB'}
+          </button>
+        )}
 
         {/* Reverb wet/dry slider */}
-        {reverbEnabled && (
+        {reverbEnabled && vc.reverbSendSlider && (
           <div className="reverb-slider-container" onClick={(e) => e.stopPropagation()}>
             <label className="reverb-slider-label">
               Send: {Math.round(reverbSendLevel * 100)}%
@@ -262,7 +272,7 @@ export default function MixerField() {
         )}
 
         {/* Reverb LPF slider */}
-        {reverbEnabled && (
+        {reverbEnabled && vc.reverbLpfSlider && (
           <div className="reverb-slider-container" onClick={(e) => e.stopPropagation()}>
             <label className="reverb-slider-label">
               LPF: {reverbLpfFreq >= 10000 ? `${(reverbLpfFreq / 1000).toFixed(1)}k` : reverbLpfFreq >= 1000 ? `${(reverbLpfFreq / 1000).toFixed(1)}k` : `${Math.round(reverbLpfFreq)}`} Hz
@@ -282,51 +292,57 @@ export default function MixerField() {
         )}
 
         {/* Filter toggle */}
-        <button
-          className={`control-button filter-button ${filterEnabled ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleFilter();
-          }}
-          title={filterEnabled ? 'Disable HPF/LPF filter' : 'Enable HPF/LPF filter'}
-        >
-          {filterEnabled ? 'FILTER ON' : 'FILTER OFF'}
-        </button>
+        {vc.filterToggle && (
+          <button
+            className={`control-button filter-button ${filterEnabled ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFilter();
+            }}
+            title={filterEnabled ? 'Disable HPF/LPF filter' : 'Enable HPF/LPF filter'}
+          >
+            {filterEnabled ? 'FILTER ON' : 'FILTER OFF'}
+          </button>
+        )}
 
         {/* Quantize toggle */}
-        <button
-          className={`control-button quantize-button ${quantizeEnabled ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleQuantize();
-          }}
-          title={quantizeEnabled ? 'Disable grid quantize' : 'Enable grid quantize'}
-        >
-          {quantizeEnabled ? '⏱ GRID ON' : '⏱ GRID'}
-        </button>
+        {vc.quantizeToggle && (
+          <button
+            className={`control-button quantize-button ${quantizeEnabled ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleQuantize();
+            }}
+            title={quantizeEnabled ? 'Disable grid quantize' : 'Enable grid quantize'}
+          >
+            {quantizeEnabled ? '⏱ GRID ON' : '⏱ GRID'}
+          </button>
+        )}
 
         {/* BPM control */}
-        <div className="bpm-control" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="number"
-            className="bpm-input"
-            min="40"
-            max="240"
-            value={bpmInput}
-            onChange={handleBpmInputChange}
-            onBlur={handleBpmInputBlur}
-            onKeyDown={handleBpmInputKeyDown}
-          />
-          <span className="bpm-label">BPM</span>
-          <input
-            type="range"
-            className="bpm-slider"
-            min="40"
-            max="240"
-            value={bpm}
-            onChange={(e) => setBpm(parseInt(e.target.value, 10))}
-          />
-        </div>
+        {vc.bpmControl && (
+          <div className="bpm-control" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="number"
+              className="bpm-input"
+              min="40"
+              max="240"
+              value={bpmInput}
+              onChange={handleBpmInputChange}
+              onBlur={handleBpmInputBlur}
+              onKeyDown={handleBpmInputKeyDown}
+            />
+            <span className="bpm-label">BPM</span>
+            <input
+              type="range"
+              className="bpm-slider"
+              min="40"
+              max="240"
+              value={bpm}
+              onChange={(e) => setBpm(parseInt(e.target.value, 10))}
+            />
+          </div>
+        )}
       </div>
 
       {/* Drop hint */}
@@ -350,11 +366,13 @@ export default function MixerField() {
           getAmplitude={getAmplitude}
           globalMuted={globalMuted}
           hasBackground={!!backgroundImage}
+          mode={mode}
+          showRemove={!isPlayer || showOrbRemove}
         />
       ))}
 
-      {/* Filter curve panel (only when filter is enabled) */}
-      {selectedOrb && filterEnabled && (
+      {/* Filter curve panel (only in admin mode and when filter is enabled) */}
+      {!isPlayer && selectedOrb && filterEnabled && (
         <FilterCurve
           orbId={selectedOrb.id}
           orbName={selectedOrb.name}

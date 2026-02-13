@@ -1,10 +1,13 @@
 import { useRef, useEffect, useState } from 'react';
 import useSoundStore from '../stores/useSoundStore';
 import { useAudioEngine, exportAudioBufferAsWav } from '../hooks/useAudioEngine';
-import { saveToDb, getByIdsFromDb, removeFromDb, getAllPresets, savePreset, deletePreset as deletePresetFromDb } from '../lib/audioDb';
+import { saveToDb, getByIdsFromDb, removeFromDb, getAllPresets, savePreset, deletePreset as deletePresetFromDb, playerDbName } from '../lib/audioDb';
 import LibraryItem from './LibraryItem';
 
-export default function Library() {
+export default function Library({ mode = 'admin', sharePresetIds = null, shareId = null }) {
+  const isPlayer = mode === 'player';
+  // In player mode, use share-specific IDB for all writes
+  const dbName = isPlayer && shareId ? playerDbName(shareId) : undefined;
   const fileInputRef = useRef(null);
   const libraryItems = useSoundStore((s) => s.libraryItems);
   const addToLibrary = useSoundStore((s) => s.addToLibrary);
@@ -32,10 +35,12 @@ export default function Library() {
   const [nameInput, setNameInput] = useState('');
   const initRef = useRef(false);
 
-  // Load presets from IndexedDB on mount, then load library for active preset
+  // Load presets from IndexedDB on mount (admin only — player loads via Player.jsx)
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
+
+    if (isPlayer) return; // Player.jsx handles preset + library loading
 
     (async () => {
       try {
@@ -67,7 +72,7 @@ export default function Library() {
   async function loadLibraryForPreset(preset) {
     if (!preset.libraryItemDbIds || preset.libraryItemDbIds.length === 0) return;
     try {
-      const items = await getByIdsFromDb(preset.libraryItemDbIds);
+      const items = await getByIdsFromDb(preset.libraryItemDbIds, dbName);
       for (const item of items) {
         try {
           const audioBuffer = await decodeAudio(item.audioData);
@@ -85,7 +90,7 @@ export default function Library() {
   // Persist preset to IndexedDB whenever it changes
   useEffect(() => {
     if (activePreset) {
-      savePreset(activePreset).catch(console.error);
+      savePreset(activePreset, dbName).catch(console.error);
     }
   }, [activePreset]);
 
@@ -98,7 +103,7 @@ export default function Library() {
         const audioBuffer = await decodeAudio(arrayBuffer);
         const name = file.name.replace(/\.[^/.]+$/, '');
 
-        const dbId = await saveToDb(name, copyForDb);
+        const dbId = await saveToDb(name, copyForDb, dbName);
         addToLibrary(name, audioBuffer, dbId);
         addDbIdToPreset(dbId);
 
@@ -115,7 +120,7 @@ export default function Library() {
   const handleRemove = async (item) => {
     if (item.dbId) {
       try {
-        await removeFromDb(item.dbId);
+        await removeFromDb(item.dbId, dbName);
         removeDbIdFromPreset(item.dbId);
       } catch (err) {
         console.error('Failed to remove from DB:', err);
@@ -131,7 +136,7 @@ export default function Library() {
     setTimeout(() => {
       const state = useSoundStore.getState();
       const newPreset = state.presets.find((p) => p.id === state.activePresetId);
-      if (newPreset) savePreset(newPreset).catch(console.error);
+      if (newPreset) savePreset(newPreset, dbName).catch(console.error);
     }, 50);
   };
 
@@ -158,7 +163,7 @@ export default function Library() {
     const id = activePresetId;
     deletePreset(id);
     try {
-      await deletePresetFromDb(id);
+      await deletePresetFromDb(id, dbName);
     } catch (err) {
       console.error('Failed to delete preset from DB:', err);
     }
@@ -174,6 +179,12 @@ export default function Library() {
     reader.readAsDataURL(file);
     e.target.value = '';
   };
+
+  // In player mode, show all presets (shared from admin + user-created)
+  const displayPresets = presets;
+
+  // In player mode, shared presets can't be deleted
+  const canDeletePreset = !isPlayer || !(activePreset?.shared);
 
   return (
     <div className="library">
@@ -202,82 +213,91 @@ export default function Library() {
           value={activePresetId}
           onChange={handlePresetSwitch}
         >
-          {presets.map((p) => (
+          {displayPresets.map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
 
-        {editingName ? (
-          <input
-            className="preset-name-input"
-            type="text"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onBlur={finishEditName}
-            onKeyDown={(e) => e.key === 'Enter' && finishEditName()}
-            autoFocus
-          />
-        ) : (
-          <button className="preset-rename-btn" onClick={startEditName} title="Rename preset">
-            ✏️
+        {!isPlayer && (
+          editingName ? (
+            <input
+              className="preset-name-input"
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onBlur={finishEditName}
+              onKeyDown={(e) => e.key === 'Enter' && finishEditName()}
+              autoFocus
+            />
+          ) : (
+            <button className="preset-rename-btn" onClick={startEditName} title="Rename preset">
+              ✏️
+            </button>
+          )
+        )}
+
+        {!isPlayer && (
+          <button className="preset-new-btn" onClick={handleNewPreset} title="New preset">
+            +
           </button>
         )}
 
-        <button className="preset-new-btn" onClick={handleNewPreset} title="New preset">
-          +
-        </button>
-
-        {presets.length > 1 && (
+        {displayPresets.length > 1 && canDeletePreset && (
           <button className="preset-delete-btn" onClick={handleDeletePreset} title="Delete preset">
             ×
           </button>
         )}
       </div>
 
-      {/* Background image upload */}
-      <div className="bg-upload">
-        {activePreset?.backgroundImage ? (
-          <div className="bg-upload-preview">
-            <img
-              src={activePreset.backgroundImage}
-              alt="Background"
-              className="bg-thumbnail"
-            />
+      {/* Background image upload (admin only) */}
+      {!isPlayer && (
+        <div className="bg-upload">
+          {activePreset?.backgroundImage ? (
+            <div className="bg-upload-preview">
+              <img
+                src={activePreset.backgroundImage}
+                alt="Background"
+                className="bg-thumbnail"
+              />
+              <button
+                className="bg-remove-btn"
+                onClick={removeBackgroundImage}
+                title="Remove background"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
             <button
-              className="bg-remove-btn"
-              onClick={removeBackgroundImage}
-              title="Remove background"
+              className="bg-upload-btn"
+              onClick={() => bgInputRef.current?.click()}
             >
-              ×
+              + Background
             </button>
-          </div>
-        ) : (
-          <button
-            className="bg-upload-btn"
-            onClick={() => bgInputRef.current?.click()}
-          >
-            + Background
-          </button>
-        )}
-        <input
-          ref={bgInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleBackgroundUpload}
-          style={{ display: 'none' }}
-        />
-      </div>
-
-      <div className="library-export-toggle">
-        <label>
+          )}
           <input
-            type="checkbox"
-            checked={autoExport}
-            onChange={(e) => setAutoExport(e.target.checked)}
+            ref={bgInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleBackgroundUpload}
+            style={{ display: 'none' }}
           />
-          Export WAV bij import
-        </label>
-      </div>
+        </div>
+      )}
+
+      {/* Export WAV toggle (admin only) */}
+      {!isPlayer && (
+        <div className="library-export-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={autoExport}
+              onChange={(e) => setAutoExport(e.target.checked)}
+            />
+            Export WAV bij import
+          </label>
+        </div>
+      )}
 
       <div className="library-list">
         {libraryItems.length === 0 && (

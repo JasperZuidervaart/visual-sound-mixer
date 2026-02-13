@@ -15,7 +15,10 @@ export default function SoundOrb({
   getAmplitude,
   globalMuted,
   hasBackground = false,
+  mode = 'admin',
+  showRemove = true,
 }) {
+  const isPlayer = mode === 'player';
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -187,10 +190,12 @@ export default function SoundOrb({
         </svg>
       </div>
 
-      {/* Debug info tooltip */}
-      <div className="orb-debug">
-        {debugInfo.filterType} {debugInfo.freq} · Pan {debugInfo.pan} · Gain {debugInfo.gain} · Comp {debugInfo.comp}
-      </div>
+      {/* Debug info tooltip (admin only) */}
+      {!isPlayer && (
+        <div className="orb-debug">
+          {debugInfo.filterType} {debugInfo.freq} · Pan {debugInfo.pan} · Gain {debugInfo.gain} · Comp {debugInfo.comp}
+        </div>
+      )}
 
       {isHovered && (
         <>
@@ -204,15 +209,17 @@ export default function SoundOrb({
           >
             {orb.muted ? '🔇' : '🔊'}
           </button>
-          <button
-            className="orb-remove"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove(orb.id);
-            }}
-          >
-            ×
-          </button>
+          {showRemove && (
+            <button
+              className="orb-remove"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(orb.id);
+              }}
+            >
+              ×
+            </button>
+          )}
         </>
       )}
     </div>

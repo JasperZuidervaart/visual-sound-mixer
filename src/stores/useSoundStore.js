@@ -18,11 +18,29 @@ const ORB_COLORS = [
   '#00bcd4', // cyan
 ];
 
+let nextShareId = 1;
+
 let colorIndex = 0;
 function getNextColor() {
   const color = ORB_COLORS[colorIndex % ORB_COLORS.length];
   colorIndex++;
   return color;
+}
+
+function generateShareId() {
+  return Math.random().toString(36).substring(2, 10);
+}
+
+function createDefaultVisibleControls() {
+  return {
+    globalMute: true,
+    reverbToggle: true,
+    reverbSendSlider: true,
+    reverbLpfSlider: true,
+    filterToggle: true,
+    quantizeToggle: true,
+    bpmControl: true,
+  };
 }
 
 function createDefaultPreset(name = 'Preset 1') {
@@ -37,6 +55,7 @@ function createDefaultPreset(name = 'Preset 1') {
     filterEnabled: true,
     backgroundImage: null,
     libraryItemDbIds: [],
+    shared: false,
   };
 }
 
@@ -249,6 +268,37 @@ const useSoundStore = create((set, get) => ({
     })),
 
   clearOrbs: () => set({ orbs: [] }),
+
+  // ===== Shares =====
+  shares: [],
+
+  createShare: (name, presetIds, visibleControls = null, showLibrary = true, showOrbRemove = true) =>
+    set((state) => {
+      const share = {
+        id: generateShareId(),
+        name,
+        presetIds,
+        visibleControls: visibleControls || createDefaultVisibleControls(),
+        showLibrary,
+        showOrbRemove,
+      };
+      return { shares: [...state.shares, share] };
+    }),
+
+  updateShare: (shareId, changes) =>
+    set((state) => ({
+      shares: state.shares.map((s) =>
+        s.id === shareId ? { ...s, ...changes } : s
+      ),
+    })),
+
+  deleteShare: (shareId) =>
+    set((state) => ({
+      shares: state.shares.filter((s) => s.id !== shareId),
+    })),
+
+  loadShares: (shares) =>
+    set(() => ({ shares })),
 }));
 
 export default useSoundStore;

@@ -5,8 +5,7 @@
   height: 100vh;
 }
 
-/* ========== Library ========== */
-.library {
+.admin-sidebar {
   width: 280px;
   min-width: 280px;
   height: 100vh;
@@ -14,7 +13,56 @@
   border-right: 2px solid var(--wts-border);
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Player: no sidebar */
+.app.no-sidebar .mixer-field {
+  width: 100%;
+}
+
+/* Player loading/error states */
+.player-loading,
+.player-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  background: var(--wts-bg);
+  color: var(--wts-text);
+}
+
+.player-loading-text,
+.player-error-text {
+  font-size: 18px;
+  color: var(--wts-text-muted);
+}
+
+/* ========== Library ========== */
+.library {
+  width: 280px;
+  min-width: 280px;
+  background: var(--wts-surface);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+/* When library is standalone (player mode), add border */
+.app.player .library {
+  height: 100vh;
+  border-right: 2px solid var(--wts-border);
+}
+
+/* When library is inside admin-sidebar, flex-shrink */
+.admin-sidebar .library {
+  width: 100%;
+  min-width: unset;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: none;
 }
 
 .library-header {
@@ -914,4 +962,191 @@
 
 .filter-curve-canvas {
   display: block;
+}
+
+/* ========== Share Manager ========== */
+.share-manager {
+  padding: 12px 20px;
+  border-top: 1px solid var(--wts-border);
+}
+
+.share-manager-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.share-manager-header h3 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--wts-text-muted);
+  margin: 0;
+}
+
+.share-new-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: var(--wts-yellow);
+  color: var(--wts-bg);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.share-new-btn:hover {
+  opacity: 0.9;
+}
+
+/* Share form */
+.share-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.share-name-input {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid var(--wts-border);
+  border-radius: 4px;
+  background: var(--wts-bg);
+  color: var(--wts-text);
+  box-sizing: border-box;
+}
+
+.share-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--wts-text-muted);
+  margin-bottom: 2px;
+}
+
+.share-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--wts-text);
+  cursor: pointer;
+}
+
+.share-checkbox input[type="checkbox"] {
+  margin: 0;
+}
+
+.share-form-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.share-save-btn {
+  flex: 1;
+  padding: 6px;
+  font-size: 12px;
+  background: var(--wts-green);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.share-cancel-btn {
+  flex: 1;
+  padding: 6px;
+  font-size: 12px;
+  background: var(--wts-border);
+  color: var(--wts-text);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Share list */
+.share-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.share-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--wts-bg);
+  border-radius: 4px;
+  border: 1px solid var(--wts-border);
+}
+
+.share-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.share-item-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wts-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-item-meta {
+  font-size: 10px;
+  color: var(--wts-text-muted);
+}
+
+.share-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.share-copy-btn,
+.share-edit-btn,
+.share-delete-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  background: transparent;
+  color: var(--wts-text-muted);
+}
+
+.share-copy-btn:hover {
+  background: #3498db;
+  color: white;
+}
+
+.share-edit-btn:hover {
+  background: var(--wts-yellow);
+  color: var(--wts-bg);
+}
+
+.share-delete-btn:hover {
+  background: #e74c3c;
+  color: white;
 }
