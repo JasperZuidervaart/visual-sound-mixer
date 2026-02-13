@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import useSoundStore from '../stores/useSoundStore';
-import { saveShare, getAllShares, deleteShareFromDb } from '../lib/audioDb';
+import { saveShare, getAllShares, deleteShareFromDb, getPresetsByIds, getByIdsFromDb } from '../lib/audioDb';
+import { encodeSharePayload, arrayBufferToBase64 } from '../lib/shareCodec';
 
 const CONTROL_LABELS = {
   globalMute: 'Global Mute',
@@ -36,6 +37,7 @@ export default function ShareManager() {
   const [showLibrary, setShowLibrary] = useState(true);
   const [showOrbRemove, setShowOrbRemove] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
+  const [generating, setGenerating] = useState(null);
 
   // Load shares from IDB on mount
   useEffect(() => {
@@ -118,17 +120,68 @@ export default function ShareManager() {
     setVisibleControls((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const getShareUrl = (shareId) => {
-    // Use import.meta.env.BASE_URL to include the base path (e.g. /visual-sound-mixer/)
-    const base = window.location.origin + import.meta.env.BASE_URL;
-    return `${base}#share-${shareId}`;
-  };
+  const copyShareUrl = async (shareId) => {
+    const share = shares.find((s) => s.id === shareId);
+    if (!share) return;
 
-  const copyShareUrl = (shareId) => {
-    navigator.clipboard.writeText(getShareUrl(shareId)).then(() => {
+    setGenerating(shareId);
+    try {
+      // 1. Get presets from IDB
+      const sharePresets = await getPresetsByIds(share.presetIds);
+
+      // 2. Collect all audio IDs
+      const audioIds = new Set();
+      for (const preset of sharePresets) {
+        for (const dbId of preset.libraryItemDbIds || []) {
+          audioIds.add(dbId);
+        }
+      }
+
+      // 3. Get audio from IDB
+      const audioItems = await getByIdsFromDb([...audioIds]);
+
+      // 4. Build audio map: id → { name, data (base64) }
+      const audioMap = {};
+      for (const item of audioItems) {
+        audioMap[item.id] = {
+          name: item.name,
+          data: arrayBufferToBase64(item.audioData),
+        };
+      }
+
+      // 5. Build payload
+      const payload = {
+        name: share.name,
+        visibleControls: share.visibleControls,
+        showLibrary: share.showLibrary,
+        showOrbRemove: share.showOrbRemove,
+        presets: sharePresets.map((p) => ({ ...p, shared: true, backgroundImage: null })),
+        audio: audioMap,
+      };
+
+      // 6. Encode & compress
+      const encoded = encodeSharePayload(payload);
+
+      // 7. Build URL
+      const base = window.location.origin + import.meta.env.BASE_URL;
+      const url = `${base}#s=${encoded}`;
+
+      if (url.length > 2_000_000) {
+        alert(
+          `Share link is te groot (${(url.length / 1_000_000).toFixed(1)}MB). Probeer minder of kleinere audiobestanden.`
+        );
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
       setCopiedId(shareId);
       setTimeout(() => setCopiedId(null), 2000);
-    });
+    } catch (err) {
+      console.error('Failed to generate share URL:', err);
+      alert('Fout bij het genereren van de share link.');
+    } finally {
+      setGenerating(null);
+    }
   };
 
   return (
@@ -229,8 +282,9 @@ export default function ShareManager() {
                   className="share-copy-btn"
                   onClick={() => copyShareUrl(share.id)}
                   title="Kopieer link"
+                  disabled={generating === share.id}
                 >
-                  {copiedId === share.id ? '✓' : '🔗'}
+                  {generating === share.id ? '...' : copiedId === share.id ? '✓' : '🔗'}
                 </button>
                 <button
                   className="share-edit-btn"

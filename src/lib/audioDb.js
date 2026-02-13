@@ -186,6 +186,18 @@ export async function getPresetsByIds(ids) {
   return results;
 }
 
+// Save audio item with a specific ID (for inline share import)
+export async function saveToDbWithId(id, name, arrayBuffer, dbName) {
+  const db = await openDb(dbName, dbName === DB_NAME ? DB_VERSION : PLAYER_DB_VERSION);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(LIBRARY_STORE, 'readwrite');
+    const store = tx.objectStore(LIBRARY_STORE);
+    const req = store.put({ id, name, audioData: arrayBuffer });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
 // ===== Player DB functions =====
 
 // Sync shared presets + audio from admin DB to player DB

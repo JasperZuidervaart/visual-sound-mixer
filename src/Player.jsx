@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import Library from './components/Library';
 import MixerField from './components/MixerField';
-import { getShareById, getPresetsByIds, syncShareToPlayerDb, getPlayerPresets, playerDbName, getByIdsFromDb } from './lib/audioDb';
+import { getShareById, getPresetsByIds, syncShareToPlayerDb, getPlayerPresets, playerDbName, getByIdsFromDb, savePreset, saveToDbWithId } from './lib/audioDb';
+import { decodeSharePayload, base64ToArrayBuffer } from './lib/shareCodec';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import useSoundStore from './stores/useSoundStore';
 import './App.css';
@@ -19,8 +20,59 @@ export default function Player() {
   useEffect(() => {
     (async () => {
       try {
-        // Parse share ID from URL hash: /#share-abc123
         const hash = window.location.hash;
+
+        // ===== Self-contained share link: #s=<compressed payload> =====
+        if (hash.startsWith('#s=')) {
+          const encoded = hash.slice(3);
+          const payload = decodeSharePayload(encoded);
+
+          const shareData = {
+            name: payload.name,
+            visibleControls: payload.visibleControls,
+            showLibrary: payload.showLibrary,
+            showOrbRemove: payload.showOrbRemove,
+            presetIds: payload.presets.map((p) => p.id),
+          };
+          setShare(shareData);
+
+          const sid = 'inline-' + Date.now();
+          setShareId(sid);
+
+          // Write presets + audio into a player-specific IDB
+          const pDbName = playerDbName(sid);
+
+          for (const preset of payload.presets) {
+            await savePreset({ ...preset, shared: true }, pDbName);
+          }
+
+          for (const [idStr, audioEntry] of Object.entries(payload.audio)) {
+            const arrayBuffer = base64ToArrayBuffer(audioEntry.data);
+            await saveToDbWithId(Number(idStr), audioEntry.name, arrayBuffer, pDbName);
+          }
+
+          // Load from player IDB (same flow as legacy shares)
+          const playerPresets = await getPlayerPresets(sid);
+          loadPresets(playerPresets);
+
+          const firstPreset = playerPresets[0];
+          if (firstPreset?.libraryItemDbIds?.length > 0) {
+            const items = await getByIdsFromDb(firstPreset.libraryItemDbIds, pDbName);
+            for (const item of items) {
+              try {
+                const audioBuffer = await decodeAudio(item.audioData);
+                addToLibrary(item.name, audioBuffer, item.id);
+              } catch (err) {
+                console.error('Failed to decode audio:', item.name, err);
+              }
+            }
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // ===== Legacy share link: #share-<id> (same browser only) =====
         const match = hash.match(/^#share-(.+)$/);
         if (!match) {
           setError('Geen share gevonden. Open een share-link om te beginnen.');
