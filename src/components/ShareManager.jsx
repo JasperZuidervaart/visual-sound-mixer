@@ -155,7 +155,7 @@ export default function ShareManager() {
         visibleControls: share.visibleControls,
         showLibrary: share.showLibrary,
         showOrbRemove: share.showOrbRemove,
-        presets: sharePresets.map((p) => ({ ...p, shared: true, backgroundImage: null })),
+        presets: sharePresets.map((p) => ({ ...p, shared: true })),
         audioNames,
       };
       folder.file('meta.json', JSON.stringify(meta, null, 2));
