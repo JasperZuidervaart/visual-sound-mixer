@@ -1,0 +1,70 @@
+{
+  "name": "Test 2",
+  "visibleControls": {
+    "globalMute": true,
+    "reverbToggle": false,
+    "reverbSendSlider": false,
+    "reverbLpfSlider": false,
+    "filterToggle": false,
+    "quantizeToggle": false,
+    "bpmControl": false
+  },
+  "showLibrary": true,
+  "showOrbRemove": true,
+  "presets": [
+    {
+      "id": 1,
+      "name": "Visual Mixer",
+      "bpm": 100,
+      "quantizeEnabled": true,
+      "reverbEnabled": true,
+      "reverbSendLevel": 0.04,
+      "reverbLpfFreq": 1517,
+      "filterEnabled": true,
+      "backgroundImage": null,
+      "libraryItemDbIds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "shared": true
+    },
+    {
+      "id": 2,
+      "name": "Geluidskleurplaat",
+      "bpm": 120,
+      "quantizeEnabled": false,
+      "reverbEnabled": false,
+      "reverbSendLevel": 0.5,
+      "reverbLpfFreq": 3500,
+      "filterEnabled": false,
+      "backgroundImage": null,
+      "libraryItemDbIds": [
+        9,
+        10,
+        11,
+        12
+      ],
+      "shared": true
+    }
+  ],
+  "audioNames": {
+    "1": "Harp",
+    "2": "Fluit",
+    "3": "Perc Hoog",
+    "4": "Perc Laag",
+    "5": "Gitaar",
+    "6": "Keys",
+    "7": "Bass",
+    "8": "Drum Loop",
+    "9": "Koe",
+    "10": "Uil",
+    "11": "Vogel",
+    "12": "Wind"
+  }
+}
