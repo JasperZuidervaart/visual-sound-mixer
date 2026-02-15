@@ -1,0 +1,48 @@
+{
+  "name": "test 1",
+  "visibleControls": {
+    "globalMute": true,
+    "reverbToggle": true,
+    "reverbSendSlider": false,
+    "reverbLpfSlider": false,
+    "filterToggle": false,
+    "quantizeToggle": false,
+    "bpmControl": false
+  },
+  "showLibrary": true,
+  "showOrbRemove": true,
+  "presets": [
+    {
+      "id": 1,
+      "name": "Preset 1",
+      "bpm": 100,
+      "quantizeEnabled": true,
+      "reverbEnabled": true,
+      "reverbSendLevel": 0.04,
+      "reverbLpfFreq": 1517,
+      "filterEnabled": true,
+      "backgroundImage": null,
+      "libraryItemDbIds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "shared": true
+    }
+  ],
+  "audioNames": {
+    "1": "Harp",
+    "2": "Fluit",
+    "3": "Perc Hoog",
+    "4": "Perc Laag",
+    "5": "Gitaar",
+    "6": "Keys",
+    "7": "Bass",
+    "8": "Drum Loop"
+  }
+}
