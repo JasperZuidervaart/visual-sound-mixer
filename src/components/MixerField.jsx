@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import useSoundStore from '../stores/useSoundStore';
 import { useAudioEngine, resumeAudioContext, updateReverbGlobalGain } from '../hooks/useAudioEngine';
-import { getNextBarTime } from '../lib/beatClock';
+import { getNextBarTime, resetBeatClock } from '../lib/beatClock';
 import SoundOrb from './SoundOrb';
 import FilterCurve from './FilterCurve';
 
@@ -128,12 +128,17 @@ export default function MixerField({ mode = 'admin', visibleControls = null, sho
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
 
-    // If quantize enabled, calculate next bar time
     if (quantizeEnabled && window.__audioCtx) {
-      const nextBar = getNextBarTime(window.__audioCtx, bpm, 4);
-      // We need to know the orb ID before it's created, so we store
-      // a pending scheduled time and apply it in the useEffect
-      const pendingOrbId = addOrbWithSchedule(soundId, x, y, nextBar);
+      if (orbs.length === 0) {
+        // Eerste geluid: start direct, reset beat clock zodat
+        // volgende geluiden synchroniseren op dit moment
+        resetBeatClock(window.__audioCtx);
+        addOrb(soundId, Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y)));
+      } else {
+        // Volgend geluid: quantize naar volgende bar
+        const nextBar = getNextBarTime(window.__audioCtx, bpm, 4);
+        addOrbWithSchedule(soundId, x, y, nextBar);
+      }
     } else {
       addOrb(soundId, Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y)));
     }
